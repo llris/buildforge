@@ -6,3 +6,9 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// Temporary model to allow Prisma Client generation in Phase 1. 
+// Will be replaced in Phase 2.
+model Dummy {
+  id Int @id @default(autoincrement())
+}
