@@ -7,8 +7,7 @@ import Register from './pages/Auth/Register';
 import ForgotPassword from './pages/Auth/ForgotPassword';
 import ProductCatalog from './pages/ProductCatalog';
 import ProductDetails from './pages/ProductDetails';
-import CategoryPage from './pages/CategoryPage';
-import SearchResults from './pages/SearchResults';
+import ComparisonPage from './pages/ComparisonPage';
 import PCBuilder from './pages/PCBuilder';
 import SavedBuilds from './pages/SavedBuilds';
 import ShoppingCart from './pages/ShoppingCart';
@@ -39,10 +38,9 @@ function App() {
             <Route path="register" element={<Register />} />
             <Route path="forgot-password" element={<ForgotPassword />} />
             <Route path="reset-password" element={<ResetPassword />} />
-            <Route path="catalog" element={<ProductCatalog />} />
-            <Route path="product/:slug" element={<ProductDetails />} />
-            <Route path="category/:slug" element={<CategoryPage />} />
-            <Route path="search" element={<SearchResults />} />
+            <Route path="products" element={<ProductCatalog />} />
+            <Route path="products/:slug" element={<ProductDetails />} />
+            <Route path="compare" element={<ComparisonPage />} />
             <Route path="builder" element={<PCBuilder />} />
             
             {/* Protected Routes */}
