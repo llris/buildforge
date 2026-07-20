@@ -2,9 +2,9 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
+import Login from './pages/Auth/Login';
+import Register from './pages/Auth/Register';
+import ForgotPassword from './pages/Auth/ForgotPassword';
 import ProductCatalog from './pages/ProductCatalog';
 import ProductDetails from './pages/ProductDetails';
 import CategoryPage from './pages/CategoryPage';
@@ -22,34 +22,47 @@ import InventoryManagement from './pages/InventoryManagement';
 import OrderManagement from './pages/OrderManagement';
 import UserReviewManagement from './pages/UserReviewManagement';
 
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminRoute } from './components/AdminRoute';
+import ResetPassword from './pages/Auth/ResetPassword';
+// (assuming we'll fix the old imports soon, for now I'll just rewrite the whole file)
+
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="login" element={<Login />} />
-          <Route path="register" element={<Register />} />
-          <Route path="forgot-password" element={<ForgotPassword />} />
-          <Route path="catalog" element={<ProductCatalog />} />
-          <Route path="product/:slug" element={<ProductDetails />} />
-          <Route path="category/:slug" element={<CategoryPage />} />
-          <Route path="search" element={<SearchResults />} />
-          <Route path="builder" element={<PCBuilder />} />
-          <Route path="builds" element={<SavedBuilds />} />
-          <Route path="cart" element={<ShoppingCart />} />
-          <Route path="wishlist" element={<Wishlist />} />
-          <Route path="checkout" element={<Checkout />} />
-          <Route path="tracking" element={<OrderTracking />} />
-          <Route path="dashboard" element={<UserDashboard />} />
-          <Route path="admin" element={<AdminDashboard />} />
-          <Route path="admin/products" element={<ProductManagement />} />
-          <Route path="admin/inventory" element={<InventoryManagement />} />
-          <Route path="admin/orders" element={<OrderManagement />} />
-          <Route path="admin/users" element={<UserReviewManagement />} />
-        </Route>
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="login" element={<Login />} />
+            <Route path="register" element={<Register />} />
+            <Route path="forgot-password" element={<ForgotPassword />} />
+            <Route path="reset-password" element={<ResetPassword />} />
+            <Route path="catalog" element={<ProductCatalog />} />
+            <Route path="product/:slug" element={<ProductDetails />} />
+            <Route path="category/:slug" element={<CategoryPage />} />
+            <Route path="search" element={<SearchResults />} />
+            <Route path="builder" element={<PCBuilder />} />
+            
+            {/* Protected Routes */}
+            <Route path="builds" element={<ProtectedRoute><SavedBuilds /></ProtectedRoute>} />
+            <Route path="cart" element={<ProtectedRoute><ShoppingCart /></ProtectedRoute>} />
+            <Route path="wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
+            <Route path="checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+            <Route path="tracking" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
+            <Route path="dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+            
+            {/* Admin Routes */}
+            <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="admin/products" element={<AdminRoute><ProductManagement /></AdminRoute>} />
+            <Route path="admin/inventory" element={<AdminRoute><InventoryManagement /></AdminRoute>} />
+            <Route path="admin/orders" element={<AdminRoute><OrderManagement /></AdminRoute>} />
+            <Route path="admin/users" element={<AdminRoute><UserReviewManagement /></AdminRoute>} />
+          </Route>
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 

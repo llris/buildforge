@@ -16,9 +16,17 @@ const { NotFoundError } = require('./utils/AppError');
 const app = express();
 const PORT = env.PORT;
 
+const cookieParser = require('cookie-parser');
+
 // Middlewares
-app.use(cors());
+app.use(
+  cors({
+    origin: env.CLIENT_URL,
+    credentials: true,
+  })
+);
 app.use(express.json());
+app.use(cookieParser());
 
 // Structured Request Logging
 app.use(
