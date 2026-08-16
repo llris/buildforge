@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Coupon" ADD COLUMN     "maxDiscount" DOUBLE PRECISION,
+ADD COLUMN     "minOrderAmount" DOUBLE PRECISION DEFAULT 0,
+ADD COLUMN     "usageLimit" INTEGER,
+ADD COLUMN     "usedCount" INTEGER NOT NULL DEFAULT 0;

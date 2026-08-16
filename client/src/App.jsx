@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
 import ForgotPassword from './pages/Auth/ForgotPassword';
+import ResetPassword from './pages/Auth/ResetPassword';
 import ProductCatalog from './pages/ProductCatalog';
 import ProductDetails from './pages/ProductDetails';
 import ComparisonPage from './pages/ComparisonPage';
@@ -22,44 +23,50 @@ import OrderManagement from './pages/OrderManagement';
 import UserReviewManagement from './pages/UserReviewManagement';
 
 import { AuthProvider } from './contexts/AuthContext';
+import { CartProvider } from './contexts/CartContext';
+import { WishlistProvider } from './contexts/WishlistContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
-import ResetPassword from './pages/Auth/ResetPassword';
-// (assuming we'll fix the old imports soon, for now I'll just rewrite the whole file)
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Home />} />
-            <Route path="login" element={<Login />} />
-            <Route path="register" element={<Register />} />
-            <Route path="forgot-password" element={<ForgotPassword />} />
-            <Route path="reset-password" element={<ResetPassword />} />
-            <Route path="products" element={<ProductCatalog />} />
-            <Route path="products/:slug" element={<ProductDetails />} />
-            <Route path="compare" element={<ComparisonPage />} />
-            <Route path="builder" element={<PCBuilder />} />
-            
-            {/* Protected Routes */}
-            <Route path="builds" element={<ProtectedRoute><SavedBuilds /></ProtectedRoute>} />
-            <Route path="cart" element={<ProtectedRoute><ShoppingCart /></ProtectedRoute>} />
-            <Route path="wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
-            <Route path="checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-            <Route path="tracking" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
-            <Route path="dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
-            
-            {/* Admin Routes */}
-            <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-            <Route path="admin/products" element={<AdminRoute><ProductManagement /></AdminRoute>} />
-            <Route path="admin/inventory" element={<AdminRoute><InventoryManagement /></AdminRoute>} />
-            <Route path="admin/orders" element={<AdminRoute><OrderManagement /></AdminRoute>} />
-            <Route path="admin/users" element={<AdminRoute><UserReviewManagement /></AdminRoute>} />
-          </Route>
-        </Routes>
-      </Router>
+      <CartProvider>
+        <WishlistProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Home />} />
+                <Route path="login" element={<Login />} />
+                <Route path="register" element={<Register />} />
+                <Route path="forgot-password" element={<ForgotPassword />} />
+                <Route path="reset-password" element={<ResetPassword />} />
+                <Route path="products" element={<ProductCatalog />} />
+                <Route path="products/:slug" element={<ProductDetails />} />
+                <Route path="compare" element={<ComparisonPage />} />
+                <Route path="builder" element={<PCBuilder />} />
+                
+                {/* Cart and Wishlist */}
+                <Route path="cart" element={<ShoppingCart />} />
+                <Route path="wishlist" element={<Wishlist />} />
+
+                {/* Protected Routes */}
+                <Route path="builds" element={<ProtectedRoute><SavedBuilds /></ProtectedRoute>} />
+                <Route path="checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+                <Route path="tracking" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
+                <Route path="dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+                
+                {/* Admin Routes */}
+                <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                <Route path="admin/products" element={<AdminRoute><ProductManagement /></AdminRoute>} />
+                <Route path="admin/inventory" element={<AdminRoute><InventoryManagement /></AdminRoute>} />
+                <Route path="admin/orders" element={<AdminRoute><OrderManagement /></AdminRoute>} />
+                <Route path="admin/users" element={<AdminRoute><UserReviewManagement /></AdminRoute>} />
+              </Route>
+            </Routes>
+          </Router>
+        </WishlistProvider>
+      </CartProvider>
     </AuthProvider>
   );
 }

@@ -188,6 +188,7 @@ model WishlistItem {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  @@unique([wishlistId, productId])
   @@index([wishlistId])
   @@index([productId])
 }
@@ -257,6 +258,10 @@ model Coupon {
   discountPercent Float
   isActive        Boolean  @default(true)
   expiresAt       DateTime?
+  usageLimit      Int?
+  usedCount       Int      @default(0)
+  minOrderAmount  Float?   @default(0)
+  maxDiscount     Float?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

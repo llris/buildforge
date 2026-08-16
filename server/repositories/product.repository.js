@@ -61,9 +61,20 @@ const findRelatedProducts = async (categoryId, excludeProductId) => {
   });
 }
 
+const findByIdWithInventory = async (id) => {
+  return await prisma.product.findUnique({
+    where: { id },
+    include: {
+      category: true,
+      inventory: true,
+    },
+  });
+};
+
 module.exports = {
   findManyWithFilters,
   findBySlugWithDetails,
   findManyByIds,
   findRelatedProducts,
+  findByIdWithInventory,
 };

@@ -1,26 +1,21 @@
 // Pure Compatibility Service
 
 /**
- * Validates a PC build configuration based on hard rules.
+ * Validates a PC build configuration based on hard rules and provides advisory analysis.
  * 
  * @param {Object} build - The selected components
- * @param {Object} build.cpu - CPU product object (must contain specs)
- * @param {Object} build.motherboard - Motherboard product object
- * @param {Array} build.ram - Array of RAM product objects
- * @param {Object} build.gpu - GPU product object
- * @param {Object} build.case - Case product object (property named 'case' or 'pcCase')
- * @param {Object} build.psu - PSU product object
- * @param {Array} build.storage - Array of Storage product objects
- * @param {Object} build.cooler - CPU Cooler product object
+ * @param {Object} options - Additional options (resolution, catalog)
  * 
  * @returns {Object} validation result
  */
-function validateBuild(build) {
+function validateBuild(build, options = {}) {
+  const { resolution = '1440p', catalog = {} } = options;
   const errors = [];
   const warnings = [];
   const info = [];
+  let suggestions = [];
   
-  // Safe extraction (case might be reserved in JS, so allowing pcCase or case)
+  // Safe extraction
   const cpu = build.cpu;
   const motherboard = build.motherboard;
   const ram = build.ram || [];
@@ -56,6 +51,24 @@ function validateBuild(build) {
   storage.forEach(s => { addPrice(s); addTdp(s); });
   addPrice(cooler); addTdp(cooler);
 
+  const recommendedWattage = Math.ceil(estimatedWattage / 0.6);
+
+  // Helper to add fix-it suggestion
+  const addFixIt = (targetComponent, message, conditionFn) => {
+    const list = catalog[targetComponent];
+    if (!list || !Array.isArray(list)) return;
+    const candidate = list.find(conditionFn);
+    if (candidate) {
+      suggestions.push({
+        type: 'fix-it',
+        message: `${message} Try swapping to ${candidate.name}.`,
+        action: 'Apply',
+        targetComponent,
+        replacementProductId: candidate.id
+      });
+    }
+  };
+
   // --- Rule 1: CPU Socket === Motherboard Socket ---
   if (cpu && motherboard) {
     if (cpu.specs?.socket !== motherboard.specs?.socket) {
@@ -65,6 +78,7 @@ function validateBuild(build) {
         humanMessage: `The CPU socket (${cpu.specs?.socket || 'Unknown'}) does not match the Motherboard socket (${motherboard.specs?.socket || 'Unknown'}).`,
         affectedComponents: ['cpu', 'motherboard']
       });
+      addFixIt('motherboard', 'Find a compatible motherboard for your CPU.', m => m.specs?.socket === cpu.specs?.socket);
     }
   }
 
@@ -79,14 +93,11 @@ function validateBuild(build) {
     let hasMemoryTypeError = false;
 
     ram.forEach(r => {
-      // Memory Type
       if (r.specs?.memoryType && mbMemType && r.specs.memoryType !== mbMemType) {
         hasMemoryTypeError = true;
       }
-      
       const modules = r.specs?.modules ? Number(r.specs.modules) : 1;
       const capPerModule = r.specs?.capacityPerModule ? Number(r.specs.capacityPerModule) : 8;
-      
       totalModules += modules;
       totalCapacity += (modules * capPerModule);
     });
@@ -98,6 +109,7 @@ function validateBuild(build) {
         humanMessage: `The selected RAM memory type does not match the motherboard's supported memory type (${mbMemType}).`,
         affectedComponents: ['ram', 'motherboard']
       });
+      addFixIt('ram', `Switch to ${mbMemType} RAM.`, r => r.specs?.memoryType === mbMemType);
     }
 
     if (totalModules > mbSlots) {
@@ -131,6 +143,7 @@ function validateBuild(build) {
         humanMessage: `The case does not support the motherboard's form factor (${mbFormFactor}).`,
         affectedComponents: ['motherboard', 'case']
       });
+      addFixIt('case', 'Find a case that supports your motherboard.', c => c.specs?.formFactorsSupported?.includes(mbFormFactor));
     }
   }
 
@@ -146,6 +159,7 @@ function validateBuild(build) {
         humanMessage: `The GPU length (${gpuLen}mm) exceeds the case's maximum supported length (${caseMaxGpu}mm).`,
         affectedComponents: ['gpu', 'case']
       });
+      addFixIt('case', 'Find a larger case for your GPU.', c => Number(c.specs?.maxGpuLengthMm || 0) >= gpuLen);
     }
   }
 
@@ -163,6 +177,7 @@ function validateBuild(build) {
           humanMessage: `The case does not support a ${radSize}mm radiator.`,
           affectedComponents: ['cooler', 'case']
         });
+        addFixIt('case', 'Find a case that fits your AIO.', c => c.specs?.radiatorSupport?.includes(radSize) || c.specs?.radiatorSupport?.includes(String(radSize)));
       }
     } else {
       const coolerHeight = cooler.specs?.heightMm ? Number(cooler.specs.heightMm) : 0;
@@ -174,6 +189,7 @@ function validateBuild(build) {
           humanMessage: `The air cooler height (${coolerHeight}mm) exceeds the case's maximum cooler clearance (${caseMaxHeight}mm).`,
           affectedComponents: ['cooler', 'case']
         });
+        addFixIt('cooler', 'Get a lower-profile cooler.', c => Number(c.specs?.heightMm || 0) <= caseMaxHeight);
       }
     }
   }
@@ -190,6 +206,7 @@ function validateBuild(build) {
         humanMessage: `The cooler does not support the CPU socket (${cpuSocket}).`,
         affectedComponents: ['cpu', 'cooler']
       });
+      addFixIt('cooler', 'Find a cooler that fits your CPU socket.', c => c.specs?.supportedSockets?.includes(cpuSocket));
     }
   }
 
@@ -239,6 +256,15 @@ function validateBuild(build) {
         humanMessage: `The selected PSU wattage (${psuWattage}W) is lower than the estimated system wattage (${estimatedWattage}W).`,
         affectedComponents: ['psu', 'cpu', 'gpu']
       });
+      addFixIt('psu', `Get a power supply with at least ${recommendedWattage}W.`, p => Number(p.specs?.wattage) >= recommendedWattage);
+    } else if ((psuWattage - estimatedWattage) / psuWattage < 0.2) {
+      warnings.push({
+        code: 'LOW_PSU_HEADROOM',
+        severity: 'warning',
+        humanMessage: `Your PSU headroom is less than 20%. Consider upgrading to at least ${recommendedWattage}W for better efficiency and future upgrades.`,
+        affectedComponents: ['psu']
+      });
+      addFixIt('psu', 'Upgrade for better headroom.', p => Number(p.specs?.wattage) >= recommendedWattage);
     }
   } else {
     // If no PSU, add an info/warning indicating we calculated wattage
@@ -248,6 +274,77 @@ function validateBuild(build) {
       humanMessage: `Estimated wattage is ${estimatedWattage}W. Select a PSU with at least this capacity.`,
       affectedComponents: []
     });
+  }
+
+  // --- Complete Your Build Suggestions ---
+  if (!psu && cpu && motherboard) {
+    suggestions.push({
+      type: 'complete-build',
+      message: 'You are missing a Power Supply Unit (PSU).',
+      action: 'Select PSU',
+      targetComponent: 'psu'
+    });
+  }
+  if (storage.length === 0 && cpu && motherboard) {
+    suggestions.push({
+      type: 'complete-build',
+      message: 'You need at least one storage drive for the OS.',
+      action: 'Select Storage',
+      targetComponent: 'storage'
+    });
+  }
+  if (cpu && !cooler) {
+    const integrated = cpu.specs?.integratedGraphics;
+    if (integrated === false || integrated === 'false') {
+       suggestions.push({
+         type: 'complete-build',
+         message: 'You have not selected a CPU Cooler.',
+         action: 'Select Cooler',
+         targetComponent: 'cooler'
+       });
+    }
+  }
+
+  // --- Thermal Sanity ---
+  if (cpu && cooler) {
+    const cpuTdp = Number(cpu.specs?.tdp || 0);
+    const isAir = cooler.specs?.type?.toLowerCase() === 'air';
+    const height = Number(cooler.specs?.heightMm || 0);
+    if (cpuTdp > 105 && isAir && height < 150) {
+      warnings.push({
+        code: 'THERMAL_WARNING',
+        severity: 'warning',
+        humanMessage: 'You paired a high-TDP CPU with a low-profile air cooler. Consider a larger cooler or AIO.',
+        affectedComponents: ['cpu', 'cooler']
+      });
+      addFixIt('cooler', 'Upgrade your cooling solution.', c => c.specs?.type?.toLowerCase() === 'aio' || Number(c.specs?.heightMm || 0) >= 150);
+    }
+  }
+
+  // --- Memory Optimization ---
+  if (cpu && ram.length > 0) {
+    const maxSpeed = Number(cpu.specs?.maxMemorySpeed || Infinity);
+    const rSpeed = Number(ram[0].specs?.speed || 0);
+    const rModules = Number(ram[0].specs?.modules || 1);
+    
+    if (rModules === 1) {
+      info.push({
+        code: 'SINGLE_CHANNEL_MEMORY',
+        severity: 'info',
+        humanMessage: 'A single RAM stick is selected. Dual-channel memory (2 sticks) provides better performance.',
+        affectedComponents: ['ram']
+      });
+      addFixIt('ram', 'Switch to a dual-channel kit.', r => Number(r.specs?.modules || 0) >= 2);
+    }
+    
+    if (rSpeed > maxSpeed) {
+      warnings.push({
+        code: 'MEMORY_SPEED_EXCEEDS_CPU',
+        severity: 'warning',
+        humanMessage: `RAM speed (${rSpeed}MHz) exceeds CPU's supported speed (${maxSpeed}MHz). It may downclock.`,
+        affectedComponents: ['cpu', 'ram']
+      });
+    }
   }
 
   // Warning check: no dedicated GPU and CPU doesn't have integrated graphics
@@ -264,16 +361,102 @@ function validateBuild(build) {
   }
   
   // Calculate a mock "build score" based on CPU+GPU performance
-  let buildScore = 0;
-  if (cpu) buildScore += cpu.specs?.performanceScore ? Number(cpu.specs.performanceScore) : 0;
-  if (gpu) buildScore += gpu.specs?.performanceScore ? Number(gpu.specs.performanceScore) : 0;
+  let cpuScore = cpu?.specs?.performanceScore ? Number(cpu.specs.performanceScore) : 0;
+  let gpuScore = gpu?.specs?.performanceScore ? Number(gpu.specs.performanceScore) : 0;
   
-  // Simple normalize: max score approx 100 for a flagship build
-  if (buildScore > 0) {
-    buildScore = Math.min(100, Math.round((buildScore / 200) * 100)); 
-  } else {
-    buildScore = 0;
+  let buildScore = 0;
+  if (cpuScore || gpuScore) {
+    buildScore = Math.min(100, Math.round(((cpuScore + gpuScore) / 200) * 100)); 
   }
+
+  // --- Bottleneck Analysis ---
+  let bottleneck = null;
+  let performanceEstimate = null;
+
+  if (cpu && gpu) {
+    let cpuWeight = 1.0;
+    let gpuWeight = 1.0;
+    if (resolution === '1080p') {
+      cpuWeight = 1.2;
+    } else if (resolution === '4K') {
+      gpuWeight = 1.2;
+    }
+
+    const weightedCpu = cpuScore * cpuWeight;
+    const weightedGpu = gpuScore * gpuWeight;
+
+    if (weightedGpu > weightedCpu + 25) {
+      bottleneck = {
+        component: 'cpu',
+        message: `At ${resolution}, your CPU is significantly weaker than your GPU. You may experience a CPU bottleneck.`
+      };
+      warnings.push({
+        code: 'CPU_BOTTLENECK',
+        severity: 'warning',
+        humanMessage: bottleneck.message,
+        affectedComponents: ['cpu', 'gpu']
+      });
+      addFixIt('cpu', 'Consider a faster CPU.', c => Number(c.specs?.performanceScore || 0) > cpuScore + 10);
+    } else if (weightedCpu > weightedGpu + 25) {
+      bottleneck = {
+        component: 'gpu',
+        message: `At ${resolution}, your GPU is holding back your CPU. Consider a stronger GPU.`
+      };
+      warnings.push({
+        code: 'GPU_BOTTLENECK',
+        severity: 'warning',
+        humanMessage: bottleneck.message,
+        affectedComponents: ['cpu', 'gpu']
+      });
+      addFixIt('gpu', 'Consider a stronger GPU.', g => Number(g.specs?.performanceScore || 0) > gpuScore + 10);
+    } else {
+      bottleneck = {
+        component: 'none',
+        message: `Great balance! Your CPU and GPU are well matched for ${resolution} gaming.`
+      };
+    }
+
+    // Performance Estimate (FPS bands)
+    const combined = weightedCpu + weightedGpu;
+    let esports, aaa;
+    if (combined < 80) {
+      esports = '60-90 FPS';
+      aaa = '30-45 FPS';
+    } else if (combined < 140) {
+      esports = '120-180 FPS';
+      aaa = '60-80 FPS';
+    } else {
+      esports = '240+ FPS';
+      aaa = '90-120+ FPS';
+    }
+    performanceEstimate = {
+      resolution,
+      esports,
+      aaa
+    };
+  }
+
+  // --- Smart Alternative Suggestion ---
+  if (gpu && suggestions.length < 5 && catalog['gpu']) {
+    const gpuPrice = gpu.discountPrice || gpu.price || 0;
+    const upgradeGpu = catalog['gpu'].find(g => {
+      const price = g.discountPrice || g.price || 0;
+      const score = Number(g.specs?.performanceScore || 0);
+      return score > gpuScore + 5 && price <= gpuPrice + 50 && price > gpuPrice;
+    });
+    if (upgradeGpu) {
+      suggestions.push({
+        type: 'smart-alternative',
+        message: `For just a bit more, you can upgrade to the ${upgradeGpu.name} for better performance.`,
+        action: 'Upgrade GPU',
+        targetComponent: 'gpu',
+        replacementProductId: upgradeGpu.id
+      });
+    }
+  }
+
+  // Limit suggestions to max 5
+  suggestions = suggestions.slice(0, 5);
 
   return {
     valid: errors.length === 0,
@@ -281,8 +464,12 @@ function validateBuild(build) {
     warnings,
     info,
     estimatedWattage,
+    recommendedWattage,
     totalPrice,
-    buildScore
+    buildScore,
+    bottleneck,
+    performanceEstimate,
+    suggestions
   };
 }
 

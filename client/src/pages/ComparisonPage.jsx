@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import api from '../api/axios';
+import { useCart } from '../contexts/CartContext';
 
 export default function ComparisonPage() {
+  const { addToCart } = useCart();
   const [searchParams] = useSearchParams();
   const idsStr = searchParams.get('ids');
   
@@ -115,7 +117,10 @@ export default function ComparisonPage() {
                     <div className="text-lg font-extrabold text-foreground mb-4">
                       ${p.discountPrice ? p.discountPrice.toFixed(2) : p.price.toFixed(2)}
                     </div>
-                    <button className="w-full rounded-md bg-primary py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+                    <button
+                      onClick={() => addToCart(p, 1)}
+                      className="w-full rounded-md bg-primary py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
+                    >
                       Add to Cart
                     </button>
                   </div>

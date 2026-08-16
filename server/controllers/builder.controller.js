@@ -1,3 +1,4 @@
+
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { validateBuild } = require('../services/advisor/compatibility.service');
@@ -26,11 +27,10 @@ const getProduct = async (id) => {
 
 exports.validate = async (req, res, next) => {
   try {
-    const componentIds = req.body; // e.g. { cpu: 'id', motherboard: 'id', ram: ['id1', 'id2'] }
+    const { resolution = '1440p', ...componentIds } = req.body;
     
     const getVal = (key) => componentIds[key] || componentIds[key.toUpperCase()] || componentIds[key.charAt(0).toUpperCase() + key.slice(1)];
     
-    // Concurrently fetch all components
     const [cpu, motherboard, gpu, pcCase, psu, cooler] = await Promise.all([
       getProduct(getVal('cpu')),
       getProduct(getVal('motherboard')),
@@ -40,7 +40,6 @@ exports.validate = async (req, res, next) => {
       getProduct(getVal('cooler'))
     ]);
     
-    // Fetch arrays
     let ram = [];
     const ramVal = getVal('ram');
     if (ramVal) {
@@ -66,9 +65,29 @@ exports.validate = async (req, res, next) => {
       cooler
     };
 
-    const result = validateBuild(buildObj);
+    // Fetch catalog for suggestions
+    const allProducts = await prisma.product.findMany({
+      where: { isActive: true },
+      include: { category: { select: { slug: true } } }
+    });
     
-    // Attach the populated component objects for the frontend to render the builder
+    const catalog = {};
+    allProducts.forEach(p => {
+      const cat = p.category?.slug;
+      if (cat) {
+        if (!catalog[cat]) catalog[cat] = [];
+        catalog[cat].push({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          discountPrice: p.discountPrice,
+          specs: typeof p.specs === 'string' ? JSON.parse(p.specs) : p.specs
+        });
+      }
+    });
+
+    const result = validateBuild(buildObj, { resolution, catalog });
+    
     res.status(200).json({
       status: 'success',
       data: {
@@ -83,14 +102,8 @@ exports.validate = async (req, res, next) => {
 
 exports.getComponents = async (req, res, next) => {
   try {
-    const { type } = req.params; // 'cpu', 'motherboard', etc.
-    // In a real app we'd map type to a categorySlug accurately
+    const { type } = req.params;
     let categorySlug = type.toLowerCase();
-
-    // To implement `?compatibleWith=<partialBuild>` we could parse the partialBuild JSON here, 
-    // run logic to add Prisma filters (e.g. if partialBuild has an AM5 motherboard, filter CPUs by socket: AM5).
-    // For simplicity in this demo, we'll just return the products for the category.
-    // If we wanted to be robust, we'd add `where: { specs: { path: ['socket'], equals: am5 } }`.
     
     const category = await prisma.category.findUnique({
       where: { slug: categorySlug }
@@ -101,10 +114,7 @@ exports.getComponents = async (req, res, next) => {
     }
 
     const products = await prisma.product.findMany({
-      where: {
-        categoryId: category.id,
-        isActive: true
-      },
+      where: { categoryId: category.id, isActive: true },
       select: {
         id: true,
         name: true,
@@ -117,9 +127,109 @@ exports.getComponents = async (req, res, next) => {
       }
     });
 
+    res.status(200).json({ status: 'success', data: products });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Greedy auto-build algorithm
+exports.autoBuild = async (req, res, next) => {
+  try {
+    const { budget = 1000, useCase = 'gaming', resolution = '1440p' } = req.body;
+    
+    const products = await prisma.product.findMany({
+      where: { isActive: true },
+      include: { category: { select: { slug: true } } }
+    });
+    
+    const catalog = {};
+    products.forEach(p => {
+      const cat = p.category?.slug;
+      if (cat) {
+        if (!catalog[cat]) catalog[cat] = [];
+        const item = {
+          id: p.id,
+          name: p.name,
+          price: p.discountPrice || p.price,
+          specs: typeof p.specs === 'string' ? JSON.parse(p.specs) : p.specs,
+          images: p.images,
+          brand: p.brand,
+          slug: p.slug
+        };
+        catalog[cat].push(item);
+      }
+    });
+    
+    Object.keys(catalog).forEach(cat => {
+      // sort by performance/price descending generally
+      catalog[cat].sort((a, b) => b.price - a.price);
+    });
+
+    // Strategy for greedy picking:
+    let gpu = null;
+    let cpu = null;
+    let motherboard = null;
+    let ram = null;
+    let storage = null;
+    let psu = null;
+    let pcCase = null;
+    let cooler = null;
+    
+    let rem = budget;
+    
+    // 1. GPU (~45% budget for gaming)
+    if (useCase !== 'office') {
+      const gpuBudget = useCase === 'gaming' ? budget * 0.45 : budget * 0.25;
+      gpu = catalog['gpu']?.find(g => g.price <= gpuBudget) || catalog['gpu']?.reverse().find(g => g.price <= budget * 0.6); // fallback to cheapest if none under budget
+      if (gpu) rem -= gpu.price;
+    }
+
+    // 2. CPU (~25% budget)
+    const cpuBudget = useCase === 'workstation' ? budget * 0.4 : budget * 0.25;
+    cpu = catalog['cpu']?.find(c => c.price <= cpuBudget) || catalog['cpu']?.[catalog['cpu'].length - 1]; // fallback to cheapest
+    if (cpu) rem -= cpu.price;
+
+    // 3. Motherboard (matches CPU)
+    motherboard = catalog['motherboard']?.slice().reverse().find(m => m.specs?.socket === cpu?.specs?.socket);
+    if (motherboard) rem -= motherboard.price;
+
+    // 4. RAM (matches Mobo)
+    ram = catalog['ram']?.find(r => r.specs?.memoryType === motherboard?.specs?.memoryType && r.price <= Math.max(100, rem * 0.3)) || catalog['ram']?.slice().reverse().find(r => r.specs?.memoryType === motherboard?.specs?.memoryType);
+    if (ram) rem -= ram.price;
+
+    // 5. Storage
+    storage = catalog['storage']?.find(s => s.price <= Math.max(80, rem * 0.3)) || catalog['storage']?.[catalog['storage'].length - 1];
+    if (storage) rem -= storage.price;
+
+    // 6. Case
+    pcCase = catalog['case']?.find(c => c.price <= Math.max(80, rem * 0.4) && c.specs?.formFactorsSupported?.includes(motherboard?.specs?.formFactor) && (!gpu || Number(c.specs?.maxGpuLengthMm || 999) >= Number(gpu.specs?.lengthMm || 0))) || catalog['case']?.[catalog['case'].length - 1];
+    if (pcCase) rem -= pcCase.price;
+
+    // 7. PSU (calculated wattage)
+    let estWattage = 150 + Number(cpu?.specs?.tdp || 0) + Number(gpu?.specs?.tdp || 0);
+    let targetWattage = estWattage / 0.6;
+    psu = catalog['psu']?.slice().reverse().find(p => Number(p.specs?.wattage || 0) >= targetWattage);
+    if (!psu) psu = catalog['psu']?.[0]; // just grab biggest
+    if (psu) rem -= psu.price;
+
+    // 8. Cooler
+    if (cpu && pcCase) {
+      cooler = catalog['cooler']?.slice().reverse().find(c => c.specs?.supportedSockets?.includes(cpu.specs.socket) && (c.specs.type === 'Air' ? Number(c.specs.heightMm || 0) <= Number(pcCase.specs?.maxCoolerHeightMm || 999) : true));
+    }
+
+    const buildObj = {
+      cpu, motherboard, ram: ram ? [ram] : [], gpu, case: pcCase, psu, storage: storage ? [storage] : [], cooler
+    };
+    
+    const validation = validateBuild(buildObj, { resolution, catalog });
+
     res.status(200).json({
       status: 'success',
-      data: products
+      data: {
+        validation,
+        populatedBuild: buildObj
+      }
     });
   } catch (err) {
     next(err);

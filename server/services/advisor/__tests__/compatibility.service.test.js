@@ -238,4 +238,105 @@ describe('Compatibility Service Validation', () => {
       expect(codes).toContain('MEMORY_TYPE_MISMATCH');
     });
   });
+
+  describe('Phase 7 Advisory Extensions', () => {
+    it('should generate LOW_PSU_HEADROOM warning when headroom is < 20%', () => {
+      const build = {
+        cpu: { specs: { tdp: 100 } },
+        gpu: { specs: { tdp: 300 } },
+        psu: { specs: { wattage: 600 } }
+      };
+      const res = validateBuild(build);
+      expect(res.valid).toBe(true);
+      expect(res.warnings).toContainEqual(expect.objectContaining({ code: 'LOW_PSU_HEADROOM' }));
+    });
+
+    it('should suggest complete-your-build for missing PSU and cooler', () => {
+      const build = {
+        cpu: { specs: { integratedGraphics: false } },
+        motherboard: { specs: { } }
+      };
+      const res = validateBuild(build);
+      const codes = res.suggestions.map(s => s.type);
+      expect(codes).toContain('complete-build');
+      expect(res.suggestions.find(s => s.targetComponent === 'psu')).toBeDefined();
+      expect(res.suggestions.find(s => s.targetComponent === 'storage')).toBeDefined();
+      expect(res.suggestions.find(s => s.targetComponent === 'cooler')).toBeDefined();
+    });
+
+    it('should trigger thermal sanity warning for high-TDP CPU with small air cooler', () => {
+      const build = {
+        cpu: { specs: { tdp: 120 } },
+        cooler: { specs: { type: 'air', heightMm: 140 } }
+      };
+      const res = validateBuild(build);
+      expect(res.warnings).toContainEqual(expect.objectContaining({ code: 'THERMAL_WARNING' }));
+    });
+
+    it('should trigger memory speed and single-channel warnings', () => {
+      const build = {
+        cpu: { specs: { maxMemorySpeed: 5200 } },
+        ram: [{ specs: { speed: 6000, modules: 1 } }]
+      };
+      const res = validateBuild(build);
+      expect(res.info).toContainEqual(expect.objectContaining({ code: 'SINGLE_CHANNEL_MEMORY' }));
+      expect(res.warnings).toContainEqual(expect.objectContaining({ code: 'MEMORY_SPEED_EXCEEDS_CPU' }));
+    });
+
+    it('should detect CPU bottleneck at 1080p', () => {
+      const build = {
+        cpu: { specs: { performanceScore: 40 } },
+        gpu: { specs: { performanceScore: 100 } }
+      };
+      const res = validateBuild(build, { resolution: '1080p' });
+      expect(res.bottleneck.component).toBe('cpu');
+      expect(res.warnings).toContainEqual(expect.objectContaining({ code: 'CPU_BOTTLENECK' }));
+      expect(res.performanceEstimate.esports).toBeDefined();
+    });
+
+    it('should detect GPU bottleneck at 4K', () => {
+      const build = {
+        cpu: { specs: { performanceScore: 100 } },
+        gpu: { specs: { performanceScore: 40 } }
+      };
+      const res = validateBuild(build, { resolution: '4K' });
+      expect(res.bottleneck.component).toBe('gpu');
+      expect(res.warnings).toContainEqual(expect.objectContaining({ code: 'GPU_BOTTLENECK' }));
+    });
+
+    it('should provide fix-it suggestion with valid catalog', () => {
+      const catalog = {
+        psu: [
+          { id: 'psu-1', name: '750W Gold', specs: { wattage: 750 } },
+          { id: 'psu-2', name: '1000W Gold', specs: { wattage: 1000 } }
+        ]
+      };
+      const build = {
+        cpu: { specs: { tdp: 100 } },
+        gpu: { specs: { tdp: 300 } },
+        psu: { specs: { wattage: 500 } }
+      };
+      const res = validateBuild(build, { catalog });
+      expect(res.valid).toBe(false);
+      const fixIt = res.suggestions.find(s => s.type === 'fix-it' && s.targetComponent === 'psu');
+      expect(fixIt).toBeDefined();
+      expect(fixIt.replacementProductId).toBe('psu-2');
+    });
+
+    it('should provide smart-alternative suggestion', () => {
+      const catalog = {
+        gpu: [
+          { id: 'gpu-1', name: 'RTX 4070', price: 600, specs: { performanceScore: 80 } },
+          { id: 'gpu-2', name: 'RTX 4070 Super', price: 630, specs: { performanceScore: 88 } }
+        ]
+      };
+      const build = {
+        gpu: { price: 600, specs: { performanceScore: 80 } }
+      };
+      const res = validateBuild(build, { catalog });
+      const smart = res.suggestions.find(s => s.type === 'smart-alternative');
+      expect(smart).toBeDefined();
+      expect(smart.replacementProductId).toBe('gpu-2');
+    });
+  });
 });
