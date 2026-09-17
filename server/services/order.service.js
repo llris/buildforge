@@ -13,6 +13,7 @@ const reservationRepo = require('../repositories/reservation.repository');
 const paymentRepo = require('../repositories/payment.repository');
 const orderRepo = require('../repositories/order.repository');
 const productRepo = require('../repositories/product.repository');
+const notificationService = require('./notification.service');
 
 // Razorpay client instance
 let razorpayClient = null;
@@ -311,6 +312,15 @@ const verifyPayment = async (userId, { orderId, razorpayOrderId, razorpayPayment
     // d. Clear user's cart
     await cartRepo.clearCart(order.userId, tx);
 
+    // e. Create in-app notification
+    await notificationService.notifyUser({
+      userId: order.userId,
+      type: 'ORDER_STATUS',
+      title: 'Payment Confirmed',
+      body: `Your payment for order #${order.id.slice(0, 8).toUpperCase()} was successful.`,
+      tx,
+    });
+
     return await orderRepo.findOrderById(tx, orderId);
   }, { maxWait: 10000, timeout: 20000 });
 
@@ -393,7 +403,16 @@ const handleRazorpayWebhook = async (rawBody, signature) => {
 
           // Clear cart
           await cartRepo.clearCart(payment.order.userId, tx);
-        });
+
+          // In-app notification
+          await notificationService.notifyUser({
+            userId: payment.order.userId,
+            type: 'ORDER_STATUS',
+            title: 'Payment Confirmed',
+            body: `Your payment for order #${payment.order.id.slice(0, 8).toUpperCase()} was processed.`,
+            tx,
+          });
+        }, { maxWait: 10000, timeout: 20000 });
       }
     }
   }

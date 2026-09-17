@@ -10,4 +10,12 @@ const sendSuccess = (res, data = null, statusCode = 200) => {
   return res.status(statusCode).json(response);
 };
 
-module.exports = { sendSuccess };
+const formatResponse = (success, data = null) => {
+  const res = { success };
+  if (data !== null && data !== undefined) {
+    res.data = data;
+  }
+  return res;
+};
+
+module.exports = { sendSuccess, formatResponse };

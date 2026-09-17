@@ -16,6 +16,7 @@ const { createReturnSchema } = require('../validations/return.validation');
 
 // Webhook endpoint (Public, signature verified inside handler)
 router.post('/webhooks/razorpay', orderController.handleRazorpayWebhook);
+router.post('/webhook', orderController.handleRazorpayWebhook);
 
 // Protected routes
 router.use(requireAuth);
