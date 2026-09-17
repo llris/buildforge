@@ -1,112 +1,95 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const { z } = require('zod');
-const AppError = require('../utils/AppError');
+const buildsService = require('../services/builds.service');
+const { sendSuccess } = require('../utils/response');
 
-const createBuildSchema = z.object({
-  name: z.string().min(1, 'Build name is required'),
-  components: z.record(z.any()), // e.g. { cpu: 'id', ram: ['id'] }
-  totalPrice: z.number().min(0),
-  buildScore: z.number().optional()
-});
-
-exports.createBuild = async (req, res, next) => {
+const createBuild = async (req, res, next) => {
   try {
-    const validatedData = createBuildSchema.parse(req.body);
-    const userId = req.user.id;
-
-    const build = await prisma.savedBuild.create({
-      data: {
-        userId,
-        name: validatedData.name,
-        components: validatedData.components,
-        totalPrice: validatedData.totalPrice,
-        buildScore: validatedData.buildScore
-      }
-    });
-
-    res.status(201).json({
-      status: 'success',
-      data: build
-    });
-  } catch (err) {
-    next(err);
+    const data = await buildsService.createBuild(req.user.id, req.body);
+    return sendSuccess(res, data, 201);
+  } catch (error) {
+    next(error);
   }
 };
 
-exports.getMyBuilds = async (req, res, next) => {
+const getMyBuilds = async (req, res, next) => {
   try {
-    const userId = req.user.id;
-    const builds = await prisma.savedBuild.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    res.status(200).json({
-      status: 'success',
-      data: builds
-    });
-  } catch (err) {
-    next(err);
+    const data = await buildsService.getMyBuilds(req.user.id);
+    return sendSuccess(res, data);
+  } catch (error) {
+    next(error);
   }
 };
 
-exports.getBuild = async (req, res, next) => {
+const getBuild = async (req, res, next) => {
   try {
-    const build = await prisma.savedBuild.findUnique({
-      where: { id: req.params.id }
-    });
-    if (!build) return next(new AppError('Build not found', 404));
-    
-    // Check ownership if not public (sharing logic later)
-    if (build.userId !== req.user.id) {
-      return next(new AppError('Unauthorized', 403));
-    }
-
-    res.status(200).json({
-      status: 'success',
-      data: build
-    });
-  } catch (err) {
-    next(err);
+    const data = await buildsService.getBuildById(req.user.id, req.params.id);
+    return sendSuccess(res, data);
+  } catch (error) {
+    next(error);
   }
 };
 
-exports.updateBuild = async (req, res, next) => {
+const updateBuild = async (req, res, next) => {
   try {
-    const { name } = req.body; // Just allowing rename for now
-    if (!name) return next(new AppError('Name is required', 400));
-    
-    const build = await prisma.savedBuild.findUnique({ where: { id: req.params.id } });
-    if (!build) return next(new AppError('Build not found', 404));
-    if (build.userId !== req.user.id) return next(new AppError('Unauthorized', 403));
-
-    const updated = await prisma.savedBuild.update({
-      where: { id: req.params.id },
-      data: { name }
-    });
-
-    res.status(200).json({
-      status: 'success',
-      data: updated
-    });
-  } catch (err) {
-    next(err);
+    const data = await buildsService.updateBuild(req.user.id, req.params.id, req.body);
+    return sendSuccess(res, data);
+  } catch (error) {
+    next(error);
   }
 };
 
-exports.deleteBuild = async (req, res, next) => {
+const deleteBuild = async (req, res, next) => {
   try {
-    const build = await prisma.savedBuild.findUnique({ where: { id: req.params.id } });
-    if (!build) return next(new AppError('Build not found', 404));
-    if (build.userId !== req.user.id) return next(new AppError('Unauthorized', 403));
-
-    await prisma.savedBuild.delete({
-      where: { id: req.params.id }
-    });
-
-    res.status(204).send();
-  } catch (err) {
-    next(err);
+    const data = await buildsService.deleteBuild(req.user.id, req.params.id);
+    return sendSuccess(res, data);
+  } catch (error) {
+    next(error);
   }
+};
+
+const shareBuild = async (req, res, next) => {
+  try {
+    const data = await buildsService.shareBuild(req.user.id, req.params.id, req.body);
+    return sendSuccess(res, data, 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getSharedBuild = async (req, res, next) => {
+  try {
+    const data = await buildsService.getSharedBuild(req.params.shareId);
+    return sendSuccess(res, data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getGalleryBuilds = async (req, res, next) => {
+  try {
+    const data = await buildsService.getGalleryBuilds(req.query);
+    return sendSuccess(res, data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const cloneSharedBuild = async (req, res, next) => {
+  try {
+    const data = await buildsService.cloneSharedBuild(req.user.id, req.params.shareId);
+    return sendSuccess(res, data, 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  createBuild,
+  getMyBuilds,
+  getBuild,
+  updateBuild,
+  deleteBuild,
+  shareBuild,
+  getSharedBuild,
+  getGalleryBuilds,
+  cloneSharedBuild,
 };

@@ -1,7 +1,11 @@
 const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
+
 const prisma = new PrismaClient();
 
 async function main() {
+  console.log('🌱 Starting BuildForge production database seed...');
+
   // Clear existing
   await prisma.auditLog.deleteMany();
   await prisma.notification.deleteMany();
@@ -31,12 +35,57 @@ async function main() {
   await prisma.shippingZone.deleteMany();
   await prisma.taxRule.deleteMany();
 
-  // 1. Users
-  const admin = await prisma.user.create({ data: { email: 'admin@buildforge.com', passwordHash: 'hash', role: 'ADMIN', isEmailVerified: true } });
-  const support = await prisma.user.create({ data: { email: 'support@buildforge.com', passwordHash: 'hash', role: 'SUPPORT', isEmailVerified: true } });
-  const cust1 = await prisma.user.create({ data: { email: 'cust1@example.com', passwordHash: 'hash', role: 'CUSTOMER' } });
-  const cust2 = await prisma.user.create({ data: { email: 'cust2@example.com', passwordHash: 'hash', role: 'CUSTOMER' } });
-  const cust3 = await prisma.user.create({ data: { email: 'cust3@example.com', passwordHash: 'hash', role: 'CUSTOMER' } });
+  // 1. Users with real bcrypt hashes for password "Password123!"
+  const passwordHash = bcrypt.hashSync('Password123!', 10);
+  const now = new Date();
+
+  const admin = await prisma.user.create({
+    data: {
+      email: 'admin@buildforge.com',
+      name: 'BuildForge Admin',
+      passwordHash,
+      role: 'ADMIN',
+      isEmailVerified: true,
+      termsAcceptedAt: now,
+      termsVersion: '2026.1',
+    },
+  });
+
+  const support = await prisma.user.create({
+    data: {
+      email: 'support@buildforge.com',
+      name: 'Support Operations',
+      passwordHash,
+      role: 'SUPPORT',
+      isEmailVerified: true,
+      termsAcceptedAt: now,
+      termsVersion: '2026.1',
+    },
+  });
+
+  const cust1 = await prisma.user.create({
+    data: {
+      email: 'customer@buildforge.com',
+      name: 'Alex Mercer',
+      passwordHash,
+      role: 'CUSTOMER',
+      isEmailVerified: true,
+      termsAcceptedAt: now,
+      termsVersion: '2026.1',
+    },
+  });
+
+  const cust2 = await prisma.user.create({
+    data: {
+      email: 'cust2@example.com',
+      name: 'Elena Rostova',
+      passwordHash,
+      role: 'CUSTOMER',
+      isEmailVerified: true,
+      termsAcceptedAt: now,
+      termsVersion: '2026.1',
+    },
+  });
 
   // 2. Categories
   const catNames = ['CPU', 'Motherboard', 'RAM', 'GPU', 'Storage', 'PSU', 'Case', 'Cooler', 'Peripherals', 'Prebuilt'];
@@ -45,7 +94,7 @@ async function main() {
     cats[name] = await prisma.category.create({ data: { name, slug: name.toLowerCase() } });
   }
 
-  // 3. Products
+  // 3. Products (48 Core Hardware Components)
   const productsToCreate = [
     // CPUs (6)
     { name: 'AMD Ryzen 5 7600X', slug: 'amd-ryzen-5-7600x', brand: 'AMD', price: 229, categoryId: cats.CPU.id, specs: { socket: 'AM5', tdp: 105, coreCount: 6, maxMemorySpeed: 5200, integratedGraphics: true, performanceScore: 75 } },
@@ -114,69 +163,70 @@ async function main() {
 
   const products = [];
   for (const p of productsToCreate) {
-    const prod = await prisma.product.create({ data: { ...p, images: [] } });
+    const prod = await prisma.product.create({
+      data: {
+        ...p,
+        images: ['https://placehold.co/600x600/1e293b/38bdf8.png?text=' + encodeURIComponent(p.brand + ' ' + p.name.split(' ')[0])],
+      },
+    });
     products.push(prod);
     await prisma.inventory.create({ data: { productId: prod.id, stockQty: 50, reservedQty: 0 } });
   }
 
-  // 4. E-commerce settings
-  await prisma.coupon.create({ data: { code: 'WELCOME10', discountPercent: 10 } });
-  await prisma.coupon.create({ data: { code: 'SUMMER20', discountPercent: 20 } });
+  // 4. Coupons, Shipping Zones & Tax Rules
+  await prisma.coupon.create({ data: { code: 'WELCOME10', discountPercent: 10, minOrderAmount: 50, maxDiscount: 100 } });
+  await prisma.coupon.create({ data: { code: 'SUMMER20', discountPercent: 20, minOrderAmount: 100, maxDiscount: 200 } });
+  await prisma.coupon.create({ data: { code: 'BUILD50', discountPercent: 5, minOrderAmount: 500, maxDiscount: 500 } });
+
   await prisma.shippingZone.create({ data: { region: 'US', fee: 15.00, estimatedDays: 3 } });
   await prisma.taxRule.create({ data: { region: 'US', ratePercent: 7.5 } });
 
   // Helper to find product by partial slug
-  const findP = (slug) => products.find(p => p.slug.includes(slug));
+  const findP = (slug) => products.find((p) => p.slug.includes(slug));
 
-  // 5. Saved Builds
-  
-  // Valid Build: AM5, 7700X, RTX 4070, B650, DDR5, 850W, ATX Case, AIO Cooler
+  // 5. Sample Saved Builds with Shares
   const validComponents = {
-    CPU: findP('7700x').id,
-    Motherboard: findP('rog-strix-b650e').id,
-    RAM: findP('ddr5-6000').id,
-    GPU: findP('rtx-4070-ti').id, 
-    Storage: findP('990-pro').id,
-    PSU: findP('rm850x').id,
-    Case: findP('4000d').id,
-    Cooler: findP('kraken-240').id,
+    cpu: findP('7700x')?.id,
+    motherboard: findP('rog-strix-b650e')?.id,
+    ram: [findP('ddr5-6000')?.id],
+    gpu: findP('rtx-4070-ti')?.id, 
+    storage: [findP('990-pro')?.id],
+    psu: findP('rm850x')?.id,
+    case: findP('4000d')?.id,
+    cooler: findP('kraken-240')?.id,
   };
   
-  await prisma.savedBuild.create({
+  const b1 = await prisma.savedBuild.create({
     data: {
       userId: cust1.id,
-      name: 'High-End 1440p AM5 Build',
+      name: 'High-End 1440p AM5 Battlestation',
+      description: 'Optimized 1440p high-refresh gaming configuration with Ryzen 7 7700X and RTX 4070 Ti.',
+      useCase: 'GAMING',
       components: validComponents,
-      totalPrice: 2000.0,
-      buildScore: 89,
-    }
+      totalPrice: 2099.0,
+      buildScore: 92,
+    },
   });
 
-  // Broken Build: Intel CPU (13600K) on AM5 Motherboard (B650)
-  const brokenComponents = {
-    CPU: findP('13600k').id, // LGA1700
-    Motherboard: findP('msi-mag-b650').id, // AM5
-    RAM: findP('ddr4-3200').id, // DDR4 (B650 needs DDR5)
-    GPU: findP('rtx-4070').id,
-    Storage: findP('870-evo').id,
-    PSU: findP('rm750e').id,
-    Case: findP('4000d').id,
-    Cooler: findP('peerless-assassin').id,
-  };
-
-  await prisma.savedBuild.create({
+  await prisma.buildShare.create({
     data: {
-      userId: cust2.id,
-      name: 'Intentionally Broken Build',
-      components: brokenComponents,
-      totalPrice: 1500.0,
-      buildScore: 0,
-    }
+      buildId: b1.id,
+      shareId: 'bf_am5_gaming',
+      isPublic: true,
+      viewCount: 42,
+      ogTitle: 'High-End 1440p AM5 Battlestation | BuildForge',
+      ogDescription: 'Balanced gaming powerhouse with Ryzen 7 7700X and RTX 4070 Ti.',
+    },
   });
 
-  console.log('Seed completed successfully!');
+  console.log(`✅ Production database seeded successfully with ${products.length} products, test accounts, coupons & shipping rules!`);
 }
 
 main()
-  .catch(e => { console.error(e); process.exit(1); })
-  .finally(async () => { await prisma.$disconnect(); });
+  .catch((e) => {
+    console.error('❌ Database seed failed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

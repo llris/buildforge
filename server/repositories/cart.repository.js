@@ -1,7 +1,8 @@
 const prisma = require('../utils/prisma');
 
-const findCartByUserId = async (userId) => {
-  return await prisma.cart.findUnique({
+const findCartByUserId = async (userId, tx = null) => {
+  const db = tx || prisma;
+  return await db.cart.findUnique({
     where: { userId },
     include: {
       items: {
@@ -21,10 +22,11 @@ const findCartByUserId = async (userId) => {
   });
 };
 
-const findOrCreateCart = async (userId) => {
-  let cart = await findCartByUserId(userId);
+const findOrCreateCart = async (userId, tx = null) => {
+  const db = tx || prisma;
+  let cart = await findCartByUserId(userId, db);
   if (!cart) {
-    cart = await prisma.cart.create({
+    cart = await db.cart.create({
       data: { userId },
       include: {
         items: {
@@ -45,8 +47,9 @@ const findOrCreateCart = async (userId) => {
   return cart;
 };
 
-const findCartItem = async (cartId, productId) => {
-  return await prisma.cartItem.findFirst({
+const findCartItem = async (cartId, productId, tx = null) => {
+  const db = tx || prisma;
+  return await db.cartItem.findFirst({
     where: { cartId, productId },
     include: {
       product: {
@@ -58,8 +61,9 @@ const findCartItem = async (cartId, productId) => {
   });
 };
 
-const findCartItemById = async (itemId) => {
-  return await prisma.cartItem.findUnique({
+const findCartItemById = async (itemId, tx = null) => {
+  const db = tx || prisma;
+  return await db.cartItem.findUnique({
     where: { id: itemId },
     include: {
       cart: true,
@@ -72,8 +76,9 @@ const findCartItemById = async (itemId) => {
   });
 };
 
-const createCartItem = async (cartId, productId, qty) => {
-  return await prisma.cartItem.create({
+const createCartItem = async (cartId, productId, qty, tx = null) => {
+  const db = tx || prisma;
+  return await db.cartItem.create({
     data: {
       cartId,
       productId,
@@ -89,8 +94,9 @@ const createCartItem = async (cartId, productId, qty) => {
   });
 };
 
-const updateCartItemQty = async (itemId, qty) => {
-  return await prisma.cartItem.update({
+const updateCartItemQty = async (itemId, qty, tx = null) => {
+  const db = tx || prisma;
+  return await db.cartItem.update({
     where: { id: itemId },
     data: { qty },
     include: {
@@ -103,15 +109,19 @@ const updateCartItemQty = async (itemId, qty) => {
   });
 };
 
-const deleteCartItem = async (itemId) => {
-  return await prisma.cartItem.delete({
+const deleteCartItem = async (itemId, tx = null) => {
+  const db = tx || prisma;
+  return await db.cartItem.delete({
     where: { id: itemId },
   });
 };
 
-const clearCart = async (cartId) => {
-  return await prisma.cartItem.deleteMany({
-    where: { cartId },
+const clearCart = async (cartIdOrUserId, tx = null) => {
+  const db = tx || prisma;
+  return await db.cartItem.deleteMany({
+    where: {
+      OR: [{ cartId: cartIdOrUserId }, { cart: { userId: cartIdOrUserId } }],
+    },
   });
 };
 

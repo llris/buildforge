@@ -3,3 +3,6 @@ node_modules
 .env.local
 dist
 build
+scratch
+coverage
+.DS_Store

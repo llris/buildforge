@@ -48,7 +48,36 @@ const requireRole = (...roles) => {
   };
 };
 
+const optionalAuth = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return next();
+    }
+
+    const token = authHeader.split(' ')[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, env.JWT_SECRET);
+    } catch {
+      return next();
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+    });
+
+    if (user && user.isActive) {
+      req.user = user;
+    }
+    next();
+  } catch {
+    next();
+  }
+};
+
 module.exports = {
   requireAuth,
   requireRole,
+  optionalAuth,
 };

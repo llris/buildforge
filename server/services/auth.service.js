@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { AppError, ValidationError, UnauthorizedError, ConflictError } = require('../utils/AppError');
 const { env } = require('../config/env');
 const { sendMail } = require('./mail');
+const { TERMS_VERSION } = require('../config/legalTerms');
 
 const generateAccessToken = (user) => {
   return jwt.sign(
@@ -32,7 +33,11 @@ const generateRefreshToken = async (userId) => {
   return token;
 };
 
-const register = async ({ email, password }) => {
+const register = async ({ email, password, acceptedTerms }) => {
+  if (!acceptedTerms) {
+    throw new ValidationError('You must accept the Terms and Conditions to create an account');
+  }
+
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
     throw new ConflictError('Email already in use');
@@ -44,6 +49,8 @@ const register = async ({ email, password }) => {
     data: {
       email,
       passwordHash,
+      termsAcceptedAt: new Date(),
+      termsVersion: TERMS_VERSION,
     },
   });
 
@@ -212,8 +219,47 @@ const resetPassword = async ({ token, newPassword }) => {
     prisma.refreshToken.updateMany({
       where: { userId: user.id },
       data: { revokedAt: new Date() },
-    })
+    }),
   ]);
+};
+
+const updateProfile = async (userId, { name }) => {
+  return await prisma.user.update({
+    where: { id: userId },
+    data: { name },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      isEmailVerified: true,
+      isActive: true,
+      termsAcceptedAt: true,
+      termsVersion: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+};
+
+const changePassword = async (userId, { currentPassword, newPassword }) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!isMatch) {
+    throw new ValidationError('Incorrect current password');
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash },
+  });
+
+  return { message: 'Password updated successfully' };
 };
 
 module.exports = {
@@ -224,4 +270,6 @@ module.exports = {
   logout,
   forgotPassword,
   resetPassword,
+  updateProfile,
+  changePassword,
 };

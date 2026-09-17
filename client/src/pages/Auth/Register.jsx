@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { AlertCircle } from 'lucide-react';
+import TermsModal from '../../components/TermsModal';
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -22,18 +23,35 @@ const Register = () => {
   const { register: registerAuth } = useAuth();
   const navigate = useNavigate();
   const [authError, setAuthError] = useState('');
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState(null);
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(registerSchema),
   });
 
-  const onSubmit = async (data) => {
+  // Step 1: Form submission opens Terms Modal
+  const onFormSubmit = (data) => {
+    setAuthError('');
+    setPendingFormData(data);
+    setIsTermsModalOpen(true);
+  };
+
+  // Step 2: User explicitly accepts Terms in Modal
+  const handleAcceptTermsAndRegister = async () => {
+    if (!pendingFormData) return;
     try {
+      setIsRegistering(true);
       setAuthError('');
-      await registerAuth(data.email, data.password);
+      await registerAuth(pendingFormData.email, pendingFormData.password, true);
+      setIsTermsModalOpen(false);
       navigate('/');
     } catch (err) {
+      setIsTermsModalOpen(false);
       setAuthError(err.response?.data?.error?.message || 'Registration failed.');
+    } finally {
+      setIsRegistering(false);
     }
   };
 
@@ -44,6 +62,9 @@ const Register = () => {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
             Create an Account
           </h2>
+          <p className="mt-2 text-center text-xs text-gray-400">
+            Join BuildForge to design custom PCs and access compatibility advisory tools
+          </p>
         </div>
         
         {authError && (
@@ -53,7 +74,7 @@ const Register = () => {
           </div>
         )}
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onFormSubmit)}>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300">Email address</label>
@@ -89,10 +110,10 @@ const Register = () => {
           <div>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-900 disabled:opacity-50"
+              disabled={isRegistering}
+              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-900 disabled:opacity-50 transition"
             >
-              {isSubmitting ? 'Creating account...' : 'Create account'}
+              Continue to Terms & Conditions
             </button>
           </div>
           
@@ -104,6 +125,14 @@ const Register = () => {
           </div>
         </form>
       </div>
+
+      {/* Terms & Conditions Modal */}
+      <TermsModal
+        isOpen={isTermsModalOpen}
+        onClose={() => setIsTermsModalOpen(false)}
+        onAccept={handleAcceptTermsAndRegister}
+        isSubmitting={isRegistering}
+      />
     </div>
   );
 };

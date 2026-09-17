@@ -40,8 +40,8 @@ export const AuthProvider = ({ children }) => {
     return data.data.user;
   };
 
-  const register = async (email, password) => {
-    const { data } = await api.post('/auth/register', { email, password });
+  const register = async (email, password, acceptedTerms = true) => {
+    const { data } = await api.post('/auth/register', { email, password, acceptedTerms });
     setAccessToken(data.data.accessToken);
     setUser(data.data.user);
     return data.data.user;
@@ -56,12 +56,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUser = (updatedFields) => {
+    setUser((prev) => (prev ? { ...prev, ...updatedFields } : prev));
+  };
+
   const value = {
     user,
     isLoading,
     login,
     register,
-    logout
+    logout,
+    updateUser,
   };
 
   return (

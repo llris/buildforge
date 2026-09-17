@@ -1,10 +1,12 @@
 const authService = require('../services/auth.service');
 const { sendSuccess } = require('../utils/response');
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Relaxed for local dev
+  secure: isProduction,
+  sameSite: isProduction ? 'none' : 'lax', // 'none' + secure:true is required for cross-origin frontend (Vercel) <-> backend (Render/Railway)
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
@@ -98,6 +100,24 @@ const getMe = async (req, res, next) => {
   }
 };
 
+const updateProfile = async (req, res, next) => {
+  try {
+    const user = await authService.updateProfile(req.user.id, req.body);
+    return sendSuccess(res, { user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const changePassword = async (req, res, next) => {
+  try {
+    const result = await authService.changePassword(req.user.id, req.body);
+    return sendSuccess(res, result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   verifyEmail,
@@ -107,4 +127,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   getMe,
+  updateProfile,
+  changePassword,
 };

@@ -9,7 +9,7 @@ const findManyWithFilters = async ({ where, orderBy, skip, take }) => {
       take,
       include: {
         inventory: true,
-      }
+      },
     }),
     prisma.product.count({ where }),
   ]);
@@ -29,11 +29,11 @@ const findBySlugWithDetails = async (slug) => {
         take: 10,
         include: {
           user: {
-            select: { id: true, email: true }
-          }
-        }
-      }
-    }
+            select: { id: true, email: true },
+          },
+        },
+      },
+    },
   });
 };
 
@@ -43,7 +43,7 @@ const findManyByIds = async (ids) => {
     include: {
       category: true,
       inventory: true,
-    }
+    },
   });
 };
 
@@ -57,17 +57,33 @@ const findRelatedProducts = async (categoryId, excludeProductId) => {
     take: 4,
     include: {
       inventory: true,
-    }
+    },
   });
-}
+};
 
-const findByIdWithInventory = async (id) => {
-  return await prisma.product.findUnique({
+const findByIdWithInventory = async (id, tx = null) => {
+  const db = tx || prisma;
+  return await db.product.findUnique({
     where: { id },
     include: {
       category: true,
       inventory: true,
     },
+  });
+};
+
+const findInventoryByProductId = async (productId, tx = null) => {
+  const db = tx || prisma;
+  return await db.inventory.findUnique({
+    where: { productId },
+  });
+};
+
+const updateInventory = async (productId, data, tx = null) => {
+  const db = tx || prisma;
+  return await db.inventory.update({
+    where: { productId },
+    data,
   });
 };
 
@@ -77,4 +93,6 @@ module.exports = {
   findManyByIds,
   findRelatedProducts,
   findByIdWithInventory,
+  findInventoryByProductId,
+  updateInventory,
 };

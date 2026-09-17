@@ -1,22 +1,27 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Heart, ShoppingCart, ArrowLeft, Check, Zap } from 'lucide-react';
 import api from '../api/axios';
 import SpecTable from '../components/Product/SpecTable';
 import ReviewSection from '../components/Product/ReviewSection';
+import QASection from '../components/Product/QASection';
 import ProductCard from '../components/Product/ProductCard';
+import SEO from '../components/Common/SEO';
+import { formatProductTitle, optimizeImageUrl, formatINR } from '../utils/productUtils';
 import { useCart } from '../contexts/CartContext';
 import { useWishlist } from '../contexts/WishlistContext';
 
 export default function ProductDetails() {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
 
+  const initialTab = searchParams.get('tab') || 'description';
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('description');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [addingToCart, setAddingToCart] = useState(false);
@@ -82,8 +87,41 @@ export default function ProductDetails() {
     }
   };
 
+  const cleanTitle = formatProductTitle(product);
+  const jsonLdData = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: cleanTitle,
+    image: images,
+    description: `Buy ${cleanTitle} by ${product.brand} online on BuildForge. Genuine hardware with 2-year warranty and verified PC compatibility.`,
+    brand: {
+      '@type': 'Brand',
+      name: product.brand,
+    },
+    offers: {
+      '@type': 'Offer',
+      price: product.discountPrice || product.price,
+      priceCurrency: 'INR',
+      availability: isOutOfStock ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+    },
+    ...(product.avgRating && product.ratingCount ? {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: product.avgRating,
+        reviewCount: product.ratingCount,
+      }
+    } : {})
+  };
+
   return (
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-16">
+      <SEO
+        title={cleanTitle}
+        description={`Buy ${cleanTitle} by ${product.brand} on BuildForge. Check real-time PC compatibility, specs, reviews, and benchmark rankings.`}
+        image={images[0]}
+        jsonLd={jsonLdData}
+      />
+
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
         <Link to="/products" className="hover:text-blue-600 flex items-center gap-1">
@@ -93,7 +131,7 @@ export default function ProductDetails() {
         <span>/</span>
         <span className="text-gray-600 uppercase">{product.category?.name || product.brand}</span>
         <span>/</span>
-        <span className="text-gray-900 truncate max-w-xs">{product.name}</span>
+        <span className="text-gray-900 truncate max-w-xs">{cleanTitle}</span>
       </div>
 
       {/* Top Section */}
@@ -102,8 +140,8 @@ export default function ProductDetails() {
         <div className="space-y-4">
           <div className="aspect-square overflow-hidden rounded-2xl bg-gray-50 p-8 border border-gray-200 flex items-center justify-center relative shadow-sm">
             <img
-              src={images[activeImage]}
-              alt={product.name}
+              src={optimizeImageUrl(images[activeImage])}
+              alt={cleanTitle}
               className="max-h-full max-w-full object-contain"
             />
             {product.discountPrice && (
@@ -122,7 +160,7 @@ export default function ProductDetails() {
                     activeImage === idx ? 'border-blue-600' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <img src={img} alt={`Thumbnail ${idx}`} className="h-full w-full object-contain" />
+                  <img src={optimizeImageUrl(img)} alt={`Thumbnail ${idx}`} className="h-full w-full object-contain" />
                 </button>
               ))}
             </div>
@@ -135,7 +173,7 @@ export default function ProductDetails() {
             {product.brand}
           </div>
           <h1 className="text-3xl font-extrabold text-gray-900 leading-tight sm:text-4xl">
-            {product.name}
+            {cleanTitle}
           </h1>
 
           {/* Rating */}
@@ -166,15 +204,15 @@ export default function ProductDetails() {
             {product.discountPrice ? (
               <>
                 <span className="text-4xl font-extrabold text-gray-900">
-                  ${product.discountPrice.toFixed(2)}
+                  {formatINR(product.discountPrice)}
                 </span>
                 <span className="text-xl font-medium text-gray-400 line-through">
-                  ${product.price.toFixed(2)}
+                  {formatINR(product.price)}
                 </span>
               </>
             ) : (
               <span className="text-4xl font-extrabold text-gray-900">
-                ${product.price.toFixed(2)}
+                {formatINR(product.price)}
               </span>
             )}
           </div>
@@ -198,7 +236,7 @@ export default function ProductDetails() {
           </div>
 
           <p className="mt-6 text-sm text-gray-600 leading-relaxed">
-            Upgrade your custom build with the high-performance {product.name} from {product.brand}. Built with premium materials and rigorous quality testing for gaming and professional workstations.
+            Upgrade your custom build with the high-performance {cleanTitle} from {product.brand}. Built with premium materials and rigorous quality testing for gaming and professional workstations.
           </p>
 
           <hr className="my-8 border-gray-200" />
@@ -296,10 +334,8 @@ export default function ProductDetails() {
             </div>
           )}
           {activeTab === 'specifications' && <SpecTable specs={product.specs} />}
-          {activeTab === 'reviews' && <ReviewSection reviews={product.reviews} />}
-          {activeTab === 'q&a' && (
-            <div className="text-gray-500 text-sm py-4">No questions have been asked yet. Be the first!</div>
-          )}
+          {activeTab === 'reviews' && <ReviewSection productId={product.id} />}
+          {activeTab === 'q&a' && <QASection productId={product.id} />}
         </div>
       </div>
 

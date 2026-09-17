@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShoppingCart, Heart } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { useWishlist } from '../../contexts/WishlistContext';
+import { formatProductTitle, optimizeImageUrl } from '../../utils/productUtils';
 
 export default function ProductCard({ product, onCompareToggle, isCompared, hideCompare }) {
   const { addToCart } = useCart();
@@ -60,10 +61,10 @@ export default function ProductCard({ product, onCompareToggle, isCompared, hide
       )}
 
       {/* Image */}
-      <div className="aspect-square overflow-hidden bg-gray-50/50 p-6 flex items-center justify-center border-b border-gray-100">
+      <div className="aspect-square overflow-hidden bg-gray-50/50 dark:bg-slate-800/50 p-6 flex items-center justify-center border-b border-gray-100 dark:border-slate-800">
         <img
-          src={product.images?.[0] || 'https://placehold.co/400x400?text=No+Image'}
-          alt={product.name}
+          src={optimizeImageUrl(product.images?.[0])}
+          alt={formatProductTitle(product)}
           className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
         />
       </div>
@@ -73,8 +74,8 @@ export default function ProductCard({ product, onCompareToggle, isCompared, hide
         <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">
           {product.brand}
         </div>
-        <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900 group-hover:text-blue-600 transition-colors">
-          {product.name}
+        <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900 dark:text-slate-100 group-hover:text-blue-600 transition-colors">
+          {formatProductTitle(product)}
         </h3>
 
         {/* Rating */}
