@@ -37,6 +37,9 @@ const OrderDetails = lazy(() => import('./pages/OrderDetails'));
 const OrderTracking = lazy(() => import('./pages/OrderTracking'));
 const UserDashboard = lazy(() => import('./pages/UserDashboard'));
 const Terms = lazy(() => import('./pages/Terms'));
+const Disclaimer = lazy(() => import('./pages/Disclaimer'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Copyright = lazy(() => import('./pages/Copyright'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Admin Pages (Lazy Loaded)
@@ -75,6 +78,9 @@ function App() {
                       <Route path="builds/:shareId" element={<SharedBuildDetails />} />
                       <Route path="builds/shared/:shareId" element={<SharedBuildDetails />} />
                       <Route path="terms" element={<Terms />} />
+                      <Route path="disclaimer" element={<Disclaimer />} />
+                      <Route path="privacy" element={<Privacy />} />
+                      <Route path="copyright" element={<Copyright />} />
 
                       {/* Cart and Wishlist */}
                       <Route path="cart" element={<ShoppingCart />} />

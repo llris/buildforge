@@ -44,7 +44,7 @@ export default function TermsModal({ isOpen, onClose, onAccept, isSubmitting }) 
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Terms and Conditions</h3>
+              <h3 className="text-lg font-bold text-white">Legal Terms & Compliance</h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
                   Version {termsData.version}
@@ -76,32 +76,84 @@ export default function TermsModal({ isOpen, onClose, onAccept, isSubmitting }) 
           )}
         </div>
 
-        {/* Footer with Checkbox and Action Buttons */}
+        {/* Footer with Document Links, Checkbox, and Action Buttons */}
         <div className="p-6 bg-gray-900 space-y-4">
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
+            <span className="text-gray-500">Read full policies:</span>
             <a
               href="/terms"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 hover:underline"
+              className="text-blue-400 hover:text-blue-300 font-semibold inline-flex items-center gap-1 hover:underline"
             >
-              <span>Open full terms page in new tab</span>
-              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Terms & Conditions</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+            <span className="text-gray-700">•</span>
+            <a
+              href="/disclaimer"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-amber-400 hover:text-amber-300 font-semibold inline-flex items-center gap-1 hover:underline"
+            >
+              <span>Disclaimer</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+            <span className="text-gray-700">•</span>
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1 hover:underline"
+            >
+              <span>Privacy Policy</span>
+              <ExternalLink className="w-3 h-3" />
             </a>
           </div>
 
-          <label className="flex items-start gap-3 cursor-pointer group select-none">
+          <div className="flex items-start gap-3 select-none pt-1">
             <input
+              id="signup-terms-checkbox"
               type="checkbox"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
               disabled={isSubmitting}
-              className="mt-1 w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+              className="mt-1 w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer shrink-0"
             />
-            <span className="text-xs sm:text-sm text-gray-300 group-hover:text-white transition leading-snug">
-              I have read and agree to the Terms and Conditions, Disclaimer, and Privacy Policy.
-            </span>
-          </label>
+            <label htmlFor="signup-terms-checkbox" className="text-xs sm:text-sm text-gray-300 leading-snug cursor-pointer">
+              I have read and agree to the{' '}
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-blue-400 hover:text-blue-300 underline font-semibold"
+              >
+                Terms and Conditions
+              </a>
+              ,{' '}
+              <a
+                href="/disclaimer"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-amber-400 hover:text-amber-300 underline font-semibold"
+              >
+                Disclaimer
+              </a>
+              , and{' '}
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-emerald-400 hover:text-emerald-300 underline font-semibold"
+              >
+                Privacy Policy
+              </a>
+              .
+            </label>
+          </div>
 
           <div className="flex items-center justify-end gap-3 pt-2">
             <button

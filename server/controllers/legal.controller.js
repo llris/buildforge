@@ -10,6 +10,33 @@ const getTerms = async (req, res, next) => {
   }
 };
 
+const getDisclaimer = async (req, res, next) => {
+  try {
+    const disclaimer = legalService.getDisclaimer();
+    return sendSuccess(res, disclaimer);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPrivacy = async (req, res, next) => {
+  try {
+    const privacy = legalService.getPrivacy();
+    return sendSuccess(res, privacy);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCopyright = async (req, res, next) => {
+  try {
+    const copyright = legalService.getCopyright();
+    return sendSuccess(res, copyright);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const acceptTerms = async (req, res, next) => {
   try {
     const user = await legalService.acceptTerms(req.user.id);
@@ -21,5 +48,8 @@ const acceptTerms = async (req, res, next) => {
 
 module.exports = {
   getTerms,
+  getDisclaimer,
+  getPrivacy,
+  getCopyright,
   acceptTerms,
 };
