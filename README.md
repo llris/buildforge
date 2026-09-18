@@ -87,7 +87,7 @@ BuildForge is a production-grade full-stack e-commerce and custom PC configurato
 | Variable | Description | Example / Recommended Value |
 | :--- | :--- | :--- |
 | `VITE_API_URL` | Base URL of the deployed backend API (must include `/api/v1`) | `https://buildforge-api.onrender.com/api/v1` |
-| `VITE_RAZORPAY_KEY_ID` | Razorpay publishable test key | `rzp_test_TQW63mLyI3l37U` |
+| `VITE_RAZORPAY_KEY_ID` | Razorpay publishable test key | `rzp_test_YourKeyIdHere` |
 
 ### 2. Backend — Render / Railway (`server`)
 
@@ -101,9 +101,9 @@ BuildForge is a production-grade full-stack e-commerce and custom PC configurato
 | `JWT_EXPIRES_IN` | Access token lifetime | `15m` |
 | `JWT_REFRESH_EXPIRES_IN` | Refresh token lifetime | `7d` |
 | `CLIENT_URL` | Allowed frontend origin(s), comma-separated for multiple | `https://buildforge.vercel.app,http://localhost:5173` |
-| `RAZORPAY_KEY_ID` | Razorpay API Key ID (Test mode) | `rzp_test_TQW63mLyI3l37U` |
-| `RAZORPAY_KEY_SECRET` | Razorpay API Key Secret (Test mode) | `9mNdrK2nMc44L41b4Y0HzaWi` |
-| `RAZORPAY_WEBHOOK_SECRET` | Razorpay Webhook Secret for signature validation | `9mNdrK2nMc44L41b4Y0HzaWi` |
+| `RAZORPAY_KEY_ID` | Razorpay API Key ID (Test mode) | `rzp_test_YourKeyIdHere` |
+| `RAZORPAY_KEY_SECRET` | Razorpay API Key Secret (Test mode) | `YourKeySecretHere` |
+| `RAZORPAY_WEBHOOK_SECRET` | Razorpay Webhook Secret for signature validation | `YourWebhookSecretHere` |
 | `SMTP_HOST` | SMTP server host (Ethereal for dev / SendGrid / Resend) | `smtp.ethereal.email` |
 | `SMTP_PORT` | SMTP port | `587` |
 | `SMTP_USER` | SMTP username | `mfdvma2yztuyznxg@ethereal.email` |
@@ -179,7 +179,6 @@ node scratch/verify_post_deploy.js
 | **Customer** | `customer@buildforge.com` | `Password123!` | PC builder, cart, order history, verified reviews, 7-day RMA requests |
 
 ### Razorpay Test Payment Credentials
-* **Test Key ID**: `rzp_test_TQW63mLyI3l37U`
 * **Test Cards**:
   * Any 16-digit card starting with `4111 1111 1111 1111`
   * Expiration: Any future date (e.g. `12/28`)
