@@ -65,7 +65,20 @@ const transitionOrder = async (tx, orderId, targetStatus, comment = null) => {
     return order;
   }
 
-  const [updatedOrder] = await Promise.all([
+  const statusTitles = {
+    PAID: 'Payment Confirmed',
+    PROCESSING: 'Order Processing',
+    SHIPPED: 'Order Shipped',
+    DELIVERED: 'Order Delivered',
+    CANCELLED: 'Order Cancelled',
+    RETURNED: 'Return Received',
+    REFUNDED: 'Order Refunded',
+  };
+
+  const title = statusTitles[targetStatus] || `Order ${targetStatus}`;
+  const body = comment || `Your order #${order.id.slice(0, 8).toUpperCase()} status is now ${targetStatus}.`;
+
+  const promises = [
     db.order.update({
       where: { id: orderId },
       data: { status: targetStatus },
@@ -77,7 +90,22 @@ const transitionOrder = async (tx, orderId, targetStatus, comment = null) => {
         comment: comment || `Status changed from ${order.status} to ${targetStatus}`,
       },
     }),
-  ]);
+  ];
+
+  if (order.userId && db.notification?.create) {
+    promises.push(
+      db.notification.create({
+        data: {
+          userId: order.userId,
+          type: 'ORDER_STATUS',
+          title,
+          body,
+        },
+      })
+    );
+  }
+
+  const [updatedOrder] = await Promise.all(promises);
 
   return updatedOrder;
 };

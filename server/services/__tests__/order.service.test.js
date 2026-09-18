@@ -134,6 +134,7 @@ describe('Order Service', () => {
       vi.spyOn(prisma.order, 'findUnique').mockResolvedValue(mockOrder);
       vi.spyOn(prisma.order, 'update').mockResolvedValue({ ...mockOrder, status: 'PAID' });
       vi.spyOn(prisma.orderStatusHistory, 'create').mockResolvedValue({});
+      vi.spyOn(prisma.notification, 'create').mockResolvedValue({});
 
       const res = await orderService.verifyPayment('user-1', {
         orderId: 'order-1',
@@ -173,6 +174,7 @@ describe('Order Service', () => {
       vi.spyOn(prisma.order, 'findUnique').mockResolvedValue(mockOrder);
       vi.spyOn(prisma.order, 'update').mockResolvedValue({ ...mockOrder, status: 'CANCELLED' });
       vi.spyOn(prisma.orderStatusHistory, 'create').mockResolvedValue({});
+      vi.spyOn(prisma.notification, 'create').mockResolvedValue({});
 
       const res = await orderService.cancelOrder('user-1', 'order-cancel-1', 'Customer request');
       expect(res.status).toBe('CANCELLED');
